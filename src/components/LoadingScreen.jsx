@@ -119,7 +119,7 @@ export default function LoadingScreen({ onComplete }) {
             transition={{ delay: 0.3 }}
           >
             <motion.div
-              className="h-full bg-gradient-to-r from-accent to-cyan-accent rounded-full"
+              className="h-full bg-linear-to-r from-accent to-cyan-accent rounded-full"
               initial={{ width: "0%" }}
               animate={{ width: "100%" }}
               transition={{ duration: 3.5, ease: "easeInOut" }}

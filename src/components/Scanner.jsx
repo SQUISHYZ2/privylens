@@ -31,7 +31,7 @@ export default function Scanner({ scanState, onStartScan, onReset }) {
         </div>
         <div className="p-6">
           <div className="flex items-center justify-between mb-3"><div className="flex items-center gap-2"><Eye className="w-4 h-4 text-accent" /><span className="text-sm font-medium">{state === SCAN_STATES.UPLOADING ? "Uploading..." : "Dual-model analysis..."}</span></div><span className="text-sm font-mono text-accent">{Math.round(progress)}%</span></div>
-          <div className="w-full h-2 bg-surface rounded-full overflow-hidden"><motion.div className="h-full rounded-full bg-gradient-to-r from-accent to-cyan-accent" animate={{ width: `${progress}%` }} /></div>
+          <div className="w-full h-2 bg-surface rounded-full overflow-hidden"><motion.div className="h-full rounded-full bg-linear-to-r from-accent to-cyan-accent" animate={{ width: `${progress}%` }} /></div>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <Phase label="Deepfake Detection" active={progress > 40} done={progress > 70} />
             <Phase label="Leak Scouting" active={progress > 60} done={progress > 85} />

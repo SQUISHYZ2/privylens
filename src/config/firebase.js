@@ -3,6 +3,7 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   onAuthStateChanged,
 } from "firebase/auth";
@@ -27,18 +28,47 @@ import {
 } from "firebase/storage";
 
 // ── Firebase Configuration ──
-// Replace these with your actual Firebase project credentials
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "demo-api-key",
-  authDomain:
-    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "demo.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "demo-project",
-  storageBucket:
-    import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "demo.appspot.com",
-  messagingSenderId:
-    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "000000000000",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:000:web:000",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
 };
+
+const REQUIRED_FIREBASE_ENV = [
+  "VITE_FIREBASE_API_KEY",
+  "VITE_FIREBASE_AUTH_DOMAIN",
+  "VITE_FIREBASE_PROJECT_ID",
+  "VITE_FIREBASE_STORAGE_BUCKET",
+  "VITE_FIREBASE_MESSAGING_SENDER_ID",
+  "VITE_FIREBASE_APP_ID",
+];
+
+function isPlaceholder(value) {
+  if (!value) return true;
+  const normalized = String(value).trim();
+  return (
+    normalized.startsWith("your_") ||
+    normalized === "000000000000" ||
+    normalized === "1:000:web:000"
+  );
+}
+
+const missingFirebaseEnvKeys = REQUIRED_FIREBASE_ENV.filter((key) =>
+  isPlaceholder(import.meta.env[key])
+);
+
+const isFirebaseConfigured = missingFirebaseEnvKeys.length === 0;
+
+function createFirebaseConfigError() {
+  const error = new Error(
+    `Missing Firebase env vars: ${missingFirebaseEnvKeys.join(", ")}`
+  );
+  error.code = "auth/configuration-not-found";
+  return error;
+}
 
 // ── Initialize Firebase ──
 const app = initializeApp(firebaseConfig);
@@ -48,7 +78,54 @@ const storage = getStorage(app);
 const googleProvider = new GoogleAuthProvider();
 
 // ── Auth Helpers ──
-export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
+export async function signInWithGoogle() {
+  if (!isFirebaseConfigured) {
+    throw createFirebaseConfigError();
+  }
+
+  googleProvider.setCustomParameters({ prompt: "select_account" });
+
+  try {
+    return await signInWithPopup(auth, googleProvider);
+  } catch (error) {
+    if (
+      error?.code === "auth/popup-blocked" ||
+      error?.code === "auth/cancelled-popup-request"
+    ) {
+      await signInWithRedirect(auth, googleProvider);
+      return null;
+    }
+    throw error;
+  }
+}
+
+export function getAuthErrorMessage(error) {
+  const code = error?.code;
+  switch (code) {
+    case "auth/popup-closed-by-user":
+      return null;
+    case "auth/configuration-not-found":
+      return "Firebase config missing. Add VITE_FIREBASE_* values in .env.local and restart dev server.";
+    case "auth/unauthorized-domain":
+      return "This domain is not authorized in Firebase. Add it in Authentication > Settings > Authorized domains.";
+    case "auth/operation-not-allowed":
+      return "Google sign-in is disabled. Enable Google provider in Firebase Authentication.";
+    case "auth/invalid-api-key":
+      return "Invalid Firebase API key. Verify VITE_FIREBASE_API_KEY.";
+    case "auth/network-request-failed":
+      return "Network request failed. Check internet/VPN/ad-blocker and retry.";
+    default:
+      return `Authentication failed (${code || "unknown_error"}). Check Firebase setup and browser console.`;
+  }
+}
+
+export function getFirebaseConfigStatus() {
+  return {
+    isConfigured: isFirebaseConfigured,
+    missingKeys: missingFirebaseEnvKeys,
+  };
+}
+
 export const logOut = () => signOut(auth);
 export const onAuthChange = (callback) => onAuthStateChanged(auth, callback);
 
